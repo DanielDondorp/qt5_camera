@@ -23,12 +23,14 @@ class CameraWidget(QtWidgets.QDockWidget,camera_control_ui):
     def connect_ui(self):
         self.ui.buttonScanCameras.clicked.connect(self.get_available_cameras)
         self.ui.buttonConnectCamera.clicked.connect(self.connect_camera)
+        self.ui.checkBoxViewCamera.toggled.connect(self.toggle_view_camera)
 
         for framerate in [10,30,60,120,240]:
             self.ui.comboBoxFramerate.addItem(str(framerate))
             self.ui.comboBoxFramerate.setCurrentText("30")
 
         self.ui.sliderCameraGamma.valueChanged.connect(self.update_camera_gamma)
+        self.ui.sliderCameraBrightness.valueChanged.connect(self.update_camera_brightness)
         self.ui.buttonSetFramerate.clicked.connect(self.update_camera_framerate)
 
 
@@ -47,15 +49,29 @@ class CameraWidget(QtWidgets.QDockWidget,camera_control_ui):
 
         gamma = self.ui.sliderCameraGamma.value()
         framerate = int(self.ui.comboBoxFramerate.currentText())
-        self.cam = Camera(device_name, framerate, gamma)
+        brightness = self.ui.sliderCameraBrightness.value()
+        self.cam = Camera(device_name, framerate, gamma, brightness)
 
-        self.cam.signals.signal_frame_changed.connect(self.update_image)
+        if self.ui.checkBoxViewCamera.isChecked():
+            self.cam.signals.signal_frame_changed.connect(self.update_image)
+
         self.cam.start()
+
+    def toggle_view_camera(self, view_camera):
+        if view_camera:
+            self.cam.signals.signal_frame_changed.connect(self.update_image)
+            self.ui.labelVideoDisplay.setVisible(True)
+        else:
+            self.cam.signals.signal_frame_changed.disconnect()
+            self.ui.labelVideoDisplay.setVisible(False)
 
     def update_camera_gamma(self, value):
         self.ui.labelCameraGammaValue.setText(str(value/100.0))
         self.cam.gamma = value
 
+    def update_camera_brightness(self, value):
+        self.ui.labelCameraBrightnessValue.setText(str(value))
+        self.cam.brightness = value
     def update_camera_framerate(self):
         self.connect_camera()
         self.ui.labelFramerate.setText(f"Framerate (currently {self.cam.actual_framerate})")
@@ -72,6 +88,14 @@ class CameraWidget(QtWidgets.QDockWidget,camera_control_ui):
         convert_to_Qt_format = QtGui.QImage(cv_img.data, w, h, bytes_per_line, QtGui.QImage.Format_Grayscale8)
         p = convert_to_Qt_format.scaled(1200, 1080, QtCore.Qt.KeepAspectRatio)
         return QtGui.QPixmap.fromImage(p)
+
+    def closeEvent(self, event):
+        try:
+            self.cam.running = False
+        except:
+            pass
+        print("goodbye")
+        event.accept()
 
 
 

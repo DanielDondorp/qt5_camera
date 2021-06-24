@@ -8,7 +8,7 @@ class Signals(QtCore.QObject):
     signal_framerate_changed = QtCore.pyqtSignal(float)
 
 class Camera(threading.Thread):
-    def __init__(self, camera_index, framerate, gamma):
+    def __init__(self, camera_index, framerate, gamma, brightness):
         threading.Thread.__init__(self)
         self.signals = Signals()
         self.running = False
@@ -17,7 +17,7 @@ class Camera(threading.Thread):
         self.gamma = gamma
         self.framerate = framerate
         self.actual_framerate = self.cap.get(cv2.CAP_PROP_FPS)
-
+        self.brightness = brightness
     def run(self):
         self.running = True
         while self.running:
@@ -42,3 +42,10 @@ class Camera(threading.Thread):
         self._framerate = framerate
         self.cap.set(cv2.CAP_PROP_FPS, framerate)
         self.actual_framerate = self.cap.get(cv2.CAP_PROP_FPS)
+    @property
+    def brightness(self):
+        return self._brightness
+    @brightness.setter
+    def brightness(self, brightness):
+        self._brightness = brightness
+        self.cap.set(cv2.CAP_PROP_BRIGHTNESS, brightness)
