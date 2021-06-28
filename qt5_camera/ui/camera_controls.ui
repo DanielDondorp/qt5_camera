@@ -12,7 +12,7 @@
   </property>
   <widget class="QWidget" name="dockWidgetContents">
    <layout class="QGridLayout" name="gridLayout">
-    <item row="0" column="0" colspan="2">
+    <item row="0" column="0">
      <layout class="QHBoxLayout" name="horizontalLayout_3">
       <item>
        <widget class="QComboBox" name="comboBoxCameras">
@@ -192,6 +192,24 @@
          <widget class="QLabel" name="label_3">
           <property name="text">
            <string>s</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayoutProgress">
+        <item>
+         <widget class="QLabel" name="labelProgress">
+          <property name="text">
+           <string>TextLabel</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QProgressBar" name="progressBarWritingProgress">
+          <property name="value">
+           <number>0</number>
           </property>
          </widget>
         </item>

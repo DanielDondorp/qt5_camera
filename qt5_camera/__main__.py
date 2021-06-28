@@ -7,7 +7,7 @@ from Camera import Camera
 import numpy as np
 import cv2
 import time
-from VideoWriter import Writer
+from VideoWriter import Writer, Timer
 
 class CameraWidget(QtWidgets.QDockWidget,camera_control_ui):
     def __init__(self):
@@ -24,7 +24,10 @@ class CameraWidget(QtWidgets.QDockWidget,camera_control_ui):
     def connect_ui(self):
         self.ui.buttonScanCameras.clicked.connect(self.get_available_cameras)
         self.ui.buttonConnectCamera.clicked.connect(self.connect_camera)
+        self.ui.buttonConnectCamera.setVisible(False)
+        self.ui.comboBoxCameras.currentTextChanged.connect(self.connect_camera)
         self.ui.checkBoxViewCamera.toggled.connect(self.toggle_view_camera)
+
 
         for framerate in [10,30,60,120,240]:
             self.ui.comboBoxFramerate.addItem(str(framerate))
@@ -99,35 +102,64 @@ class CameraWidget(QtWidgets.QDockWidget,camera_control_ui):
 
     def toggle_recording(self):
         if self.ui.buttonRecord.isChecked():
+            #set up a fresh queue
             self.q = Queue()
+
+            #get camera settings to pass writing properties
             h = int(self.cam.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
             w = int(self.cam.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            framerate = self.cam.actual_framerate
+
+            #retrieve savepath
             savepath = self.ui.lineEditSaveName.text()
             if "." not in savepath:
                 savepath += ".avi"
             self.ui.lineEditSaveName.setText(savepath)
+
+            #get video duration from ui
             duration_minutes = self.ui.spinBoxDurationMin.value()
             duration_seconds = self.ui.spinBoxDurationSec.value()
-            total_duration = duration_minutes * 60 + duration_seconds
-            framerate = self.cam.actual_framerate
-            n_frames = int(total_duration * framerate)
-            print(n_frames)
-            self.writer = Writer(q=self.q, n_frames=n_frames, savepath = savepath,
+            self.total_duration = duration_minutes * 60 + duration_seconds
+
+            #set up a timer object
+            self.timer = Timer(duration = self.total_duration)
+            self.timer.signal_timer_stopped.connect(self.recording_finished)
+            self.timer.signal_time_progressed.connect(self.update_progress)
+
+            #set up a videowriter
+            self.writer = Writer(q=self.q, savepath = savepath,
                                  framerate=framerate, shape=(w,h))
-            self.writer.signal_writing_stopped.connect(self.recording_finished)
+
+
+            #start timer
+            self.timer.start()
+            #start sending frames to queue
             self.cam.signals.signal_frame_changed.connect(self.queue_image)
+            #start writing video
             self.writer.start()
+            #update ui
             self.ui.buttonRecord.setText("Stop Recording")
             self.ui.buttonRecord.setStyleSheet("color : red")
+            self.ui.labelProgress.setVisible(True)
+            self.ui.progressBarWritingProgress.setValue(0)
+            self.ui.progressBarWritingProgress.setVisible(True)
         else:
             self.recording_finished()
 
     def recording_finished(self):
-        self.writer.running = False
+        self.q.put("done")
         self.cam.signals.signal_frame_changed.disconnect(self.queue_image)
         self.ui.buttonRecord.setText("Record")
         self.ui.buttonRecord.setStyleSheet("")
 
+        self.ui.labelProgress.setVisible(False)
+        self.ui.progressBarWritingProgress.setVisible(False)
+        self.ui.buttonRecord.setChecked(False)
+
+    @QtCore.pyqtSlot(float)
+    def update_progress(self, elapsed):
+        self.ui.labelProgress.setText(f"{np.round(elapsed,2)} / {self.total_duration}")
+        self.ui.progressBarWritingProgress.setValue(int((elapsed/self.total_duration)*100))
 
     def closeEvent(self, event):
         try:
